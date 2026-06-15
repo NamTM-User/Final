@@ -11,7 +11,9 @@ import SwiftUI
 struct Test1FinalApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ProjectListView()
+                .environment(ProjectModel())
+                .preferredColorScheme(.light)
         }
     }
 }

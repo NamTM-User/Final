@@ -13,13 +13,16 @@ import UIKit
 let CanvasSize = CGSize(width: 500, height: 500)
 
 @Observable
-class CanvasModel {
+@MainActor
+class CanvasViewModel {
     var projectDetail: ProjectDetail?
     
     // MARK: - State selected
     var selectedPhotoIndex: Int?
-    
     var localImages: [String: UIImage] = [:]
+    
+    // MARK: - Canvas State
+    var isCanvasScrollEnabled: Bool = true
     
     // api
     private let apiService = APIService()
@@ -28,7 +31,7 @@ class CanvasModel {
     
     func loadImage(urlString: String) async throws -> Image {
         // 1.encode string thành dạng an toàn không có character special
-        let safeImageName = urlString.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? UUID().uuidString
+        let safeImageName = LocalFileManager.getSafeImageName(from: urlString)
         
         // 2. kiểm tra bộ nhớ trong cache local
         if let savedImage = LocalFileManager.loadImage(imageName: safeImageName) {
@@ -62,20 +65,9 @@ class CanvasModel {
             self.projectDetail = localProject
             // loop image
             for photo in localProject.photos {
-                
-                // A. Image từ libary photo
-                if !photo.url.hasPrefix("http") {
-                    if let img = LocalFileManager.loadImage(imageName: photo.url) {
-                        self.localImages[photo.url] = img
-                    }
-                    
-                // B. Image dowload từ url
-                } else {
-                    // safe encode url
-                    let safe = photo.url.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? ""
-                    if let img = LocalFileManager.loadImage(imageName: safe) {
-                        self.localImages[photo.url] = img // save img cache
-                    }
+                let safeName = LocalFileManager.getSafeImageName(from: photo.url)
+                if let img = LocalFileManager.loadImage(imageName: safeName) {
+                    self.localImages[photo.url] = img
                 }
             }
             // check project isEmty image
@@ -92,10 +84,8 @@ class CanvasModel {
             
             // loop image
             for photo in data.photos where photo.url.hasPrefix("http") {
-                // safe encode url
-                let safe = photo.url.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? ""
-                //save image
-                if let img = LocalFileManager.loadImage(imageName: safe) {
+                let safeName = LocalFileManager.getSafeImageName(from: photo.url)
+                if let img = LocalFileManager.loadImage(imageName: safeName) {
                     self.localImages[photo.url] = img
                 }
             }
@@ -106,21 +96,120 @@ class CanvasModel {
     
     // MARK: - Add Photo
     
-    
-    func addPhoto(url: String , baseSize: CGSize) {
-        // edit after
+    func addPhoto(url: String, baseSize: CGSize, center: CGPoint? = nil) {
+        let photoCenter = center ?? CGPoint(x: CanvasSize.width / 2, y: CanvasSize.height / 2)
+        let newPhoto = Photo(
+            url: url,
+            transform: PhotoTransform(
+                center: photoCenter,
+                scale: 1.0,
+                rotation: 0.0,
+                baseSize: baseSize
+            )
+        )
+        projectDetail?.photos.append(newPhoto)
     }
     
     // MARK: - Delete Photo
+    
     func deletePhoto() {
         guard let index = selectedPhotoIndex,
               let project = projectDetail,
-              index >= 0 , index < project.photos.count else {
+              index >= 0, index < project.photos.count else {
             return
+        }
+        
+        let photo = project.photos[index]
+        let url = photo.url
+        
+        // xoá khỏi UI và ram
+        projectDetail?.photos.remove(at: index)
+        localImages.removeValue(forKey: url)
+        
+        // xoá trong ổ cứng điện thoại
+        let safeName = LocalFileManager.getSafeImageName(from: url)
+        LocalFileManager.deleteImage(imageName: safeName)
+        
+        // reset
+        selectedPhotoIndex = nil
+    }
+    
+    // MARK: - Save
+    
+    func saveChanges() {
+        if let project = projectDetail {
+            LocalFileManager.saveProject(project: project)
         }
     }
     
+    // MARK: - Draw
     
+    func renderCanvasImage() -> UIImage? {
+        let renderer = UIGraphicsImageRenderer(size: CanvasSize)
+        guard let photos = projectDetail?.photos else { return nil }
+
+        return renderer.image { ctx in
+            let cgCtx = ctx.cgContext
+            
+            UIColor.white.setFill()
+            cgCtx.fill(CGRect(origin: .zero, size: CanvasSize))
+
+            for photo in photos {
+                guard let img = localImages[photo.url] else { continue }
+                let t = photo.transform
+                let rw = t.baseSize.width * t.scale
+                let rh = t.baseSize.height * t.scale
+
+                cgCtx.saveGState()
+                
+                // Di chuyển gốc toạ độ đến vị trí tâm của bức ảnh trên Canvas
+                cgCtx.translateBy(x: t.center.x, y: t.center.y)
+                // Xoay
+                cgCtx.rotate(by: CGFloat(t.rotation))
+                
+                // Render ảnh
+                img.draw(
+                    in: CGRect(x: -rw / 2, y: -rh / 2, width: rw, height: rh),
+                    blendMode: .normal,
+                    alpha: CGFloat(photo.opacity)
+                )
+                // Reset
+                cgCtx.restoreGState()
+            }
+        }
+    }
     
+    // MARK: - Camera Focus
     
+    func focusCamera(scrollViewSize: CGSize, canvasSize: CGSize) -> CGPoint {
+        guard let photos = projectDetail?.photos, !photos.isEmpty else {
+            let offsetX = (canvasSize.width - scrollViewSize.width) / 2
+            let offsetY = (canvasSize.height - scrollViewSize.height) / 2
+            return CGPoint(x: offsetX, y: offsetY)
+        }
+        
+        var minX: Double = .greatestFiniteMagnitude
+        var minY: Double = .greatestFiniteMagnitude
+        var maxX: Double = -.greatestFiniteMagnitude
+        var maxY: Double = -.greatestFiniteMagnitude
+        
+        for photo in photos {
+            let frame = photo.frame
+            minX = min(minX, frame.x)
+            maxX = max(maxX, frame.x + frame.width)
+            minY = min(minY, frame.y)
+            maxY = max(maxY, frame.y + frame.height)
+        }
+        
+        let boundingCenterX = minX + (maxX - minX) / 2
+        let boundingCenterY = minY + (maxY - minY) / 2
+        
+        let offsetX = boundingCenterX - scrollViewSize.width / 2
+        let offsetY = boundingCenterY - scrollViewSize.height / 2
+        
+        let maxOffsetX = max(0, min(offsetX, canvasSize.width - scrollViewSize.width))
+        let maxOffsetY = max(0, min(offsetY, canvasSize.height - scrollViewSize.height))
+        
+        return CGPoint(x: maxOffsetX, y: maxOffsetY)
+    }
 }

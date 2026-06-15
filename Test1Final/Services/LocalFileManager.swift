@@ -63,6 +63,24 @@ struct LocalFileManager {
         }
     }
     
+    // MARK: - Delete IMAGE
+    
+    static func deleteImage(imageName: String) {
+        let paths = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
+        let url = paths[0].appendingPathComponent(imageName)
+        try? FileManager.default.removeItem(at: url)
+    }
+    
+    // MARK: - Safe Image Name
+    
+    static func getSafeImageName(from url: String) -> String {
+        if url.hasPrefix("http") {
+            return url.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? UUID().uuidString
+        } else {
+            return url
+        }
+    }
+    
     // MARK: - Load IMAGE IN DOCUMENT
     
     static func loadImage(imageName: String) -> UIImage? {
@@ -110,16 +128,8 @@ struct LocalFileManager {
             let paths = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
             
             for photo in project.photos {
-                if !photo.url.hasPrefix("http") {
-                    // Xoá ảnh local
-                    let imageUrl = paths[0].appendingPathComponent(photo.url)
-                    try? FileManager.default.removeItem(at: imageUrl)
-                } else {
-                    // Xoá ảnh web đã cache
-                    let safeImageName = photo.url.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? ""
-                    let imageUrl = paths[0].appendingPathComponent(safeImageName)
-                    try? FileManager.default.removeItem(at: imageUrl)
-                }
+                let safeName = getSafeImageName(from: photo.url)
+                deleteImage(imageName: safeName)
             }
         }
         

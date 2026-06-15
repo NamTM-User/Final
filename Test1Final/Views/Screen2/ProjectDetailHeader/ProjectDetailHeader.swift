@@ -1,12 +1,12 @@
 //
 //  ProjectDetailHeader.swift
-//  Test1Final
+//  Test1
 //
-//  Created by Hai Nam on 12/6/26.
+//  Created by Hai Nam on 15/5/26.
 //
 
 import SwiftUI
-internal import UniformTypeIdentifiers
+import UniformTypeIdentifiers
 
 struct CanvasShareItem: Transferable {
     let renderImage: @MainActor () async -> UIImage?
@@ -24,19 +24,41 @@ struct CanvasShareItem: Transferable {
 }
 
 struct ProjectDetailHeader: View {
-    @Environment(CanvasModel.self) private var canvasModel
+    @Environment(CanvasViewModel.self) private var canvasViewModel
     @Environment(\.dismiss) private var dismiss
-    
-//    var shareItem: CanvasShareItem {
-//        var shareItem: CanvasShareItem {
-//            CanvasShareItem {
-//                
-//            }
-//        }
-//    }
-    
+
+    var shareItem: CanvasShareItem {
+        CanvasShareItem {
+            canvasViewModel.renderCanvasImage()
+        }
+    }
+
     var body: some View {
-        Text(/*@START_MENU_TOKEN@*/"Hello, World!"/*@END_MENU_TOKEN@*/)
+        HStack {
+            // 1. back
+            Button {
+                canvasViewModel.saveChanges()
+                dismiss()
+            } label: {
+                Text("Back")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(.black)
+            }
+            // 2. spacer
+            Spacer()
+            
+            // 3. export
+            ShareLink(
+                item: shareItem,
+                preview: SharePreview(canvasViewModel.projectDetail?.name ?? "Canvas"),
+                label: {
+                    Text("Export")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundStyle(.blue)
+                }
+            )
+        }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 16)
     }
 }
-
