@@ -88,7 +88,7 @@ struct SelectionBorderView: View {
             path.addLine(to: bottomLeft)
             path.closeSubpath()
         }
-        .stroke(Color.blue, style: StrokeStyle(lineWidth: 2.0 / max(zoomScale, 0.001))) 
+        .stroke(Color.blue, style: StrokeStyle(lineWidth: 2.0 / max(zoomScale, 0.001)))
         .allowsHitTesting(false)
     }
 }

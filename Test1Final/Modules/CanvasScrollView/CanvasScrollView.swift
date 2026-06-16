@@ -1,150 +1,126 @@
 //
 //  CanvasScrollView.swift
-//  Test1Final
-//
-//  Created by Hai Nam on 15/6/26.
+//  Test1
 //
 
-import UIKit
 import SwiftUI
 
+/*
+ =========================== UIViewRepresentable========================
+ 
+ - UIViewRepresentable: là 1 protocol giúp wrap 1 View của UIKit thành 1 View của SwiftUI để dùng chung với code SwiftUI
 
-public struct CanvasScrollView<ViewSwiftUI: View > : UIViewRepresentable {
-    
-    // MARK: - 1. Init Data State
+ =======================================================================
+ Trong quá trình app chạy, hàm updateUIView của bạn bị gọi đi gọi lại hàng chục lần.
+ Nếu có những biến tạm thời không muốn bị mất đi sau mỗi lần SwiftUI re-render -> để vào Coordinator để lưu trữ
+ (nó không bị huỷ đi mỗi lần SwiftUI re-render).
+ 
+ */
+
+public struct CanvasScrollView: UIViewRepresentable {
     public var size: CGSize
-    public var isScrollEnabled: Bool // State enable pan ScrollView
-    
-    public var backgroundColor: UIColor?
-    public var canvasColor: UIColor?
-    
-    // callback
+    public var backgroundColor: UIColor
+    public var canvasColor: UIColor
+    public var isScrollEnabled: Bool
     public var onSetup: ((UIScrollView, UIView) -> Void)?
     public var onZoom: ((CGFloat) -> Void)?
-    public var onScroll: ((CGPoint) -> Void)?
-    
-    public let content: ViewSwiftUI // content in canvas = viewSwiftUI
-    
+    public let viewSwiftUI: AnyView
+
     public init(
-            size: CGSize,
-            isScrollEnabled: Bool = true,
-            backgroundColor: UIColor? = nil,
-            canvasColor: UIColor? = nil,
-            onSetup: ((UIScrollView, UIView) -> Void)? = nil,
-            onZoom: ((CGFloat) -> Void)? = nil,
-            onScroll: ((CGPoint) -> Void)? = nil,
-            @ViewBuilder content: () -> ViewSwiftUI
-    ){
+        size: CGSize,
+        backgroundColor: UIColor = .black,
+        canvasColor: UIColor = .yellow,
+        isScrollEnabled: Bool = true,
+        onSetup: ((UIScrollView, UIView) -> Void)? = nil,
+        onZoom: ((CGFloat) -> Void)? = nil,
+        viewSwiftUI: AnyView
+    ) {
         self.size = size
-        self.isScrollEnabled = isScrollEnabled
         self.backgroundColor = backgroundColor
         self.canvasColor = canvasColor
+        self.isScrollEnabled = isScrollEnabled
         self.onSetup = onSetup
         self.onZoom = onZoom
-        self.onScroll = onScroll
-        self.content = content()
+        self.viewSwiftUI = viewSwiftUI
     }
-    
+
     // MARK: - Coordinator
-    
+
     public class Coordinator: NSObject, UIScrollViewDelegate {
-        var hostingController: UIHostingController<ViewSwiftUI>?
-        var didLoad = false
-        var onZoom: ((CGFloat) -> Void)? // storage closure zoom
-        var onScroll: ((CGPoint) -> Void)? // storage closure scroll
+        public var contentView: UIView?
+        public var hostingController: UIHostingController<AnyView>?
+        public var didLoad = false
+        public var onZoom: ((CGFloat) -> Void)?
         
         public func viewForZooming(in scrollView: UIScrollView) -> UIView? {
-            return hostingController?.view
+            return contentView
         }
-        
+
         public func scrollViewDidZoom(_ scrollView: UIScrollView) {
             centerContent(scrollView)
-            onZoom?(scrollView.zoomScale) // Báo cáo tỉ lệ zoom ra ngoài SwiftUI.
+            onZoom?(scrollView.zoomScale)
         }
-        
-        public func scrollViewDidScroll(_ scrollView: UIScrollView) {
-            onScroll?(scrollView.contentOffset) // Báo cáo toạ độ x, y ra ngoài SwiftUI.
-        }
-        
-        // MARK: - CENTER CANVAS
-        func centerContent(_ scrollView: UIScrollView) {
-            guard let cv = hostingController?.view else { return }
-            let boundsSize = scrollView.bounds.size // Kích thước khung hình của ScrollView
-            let frame = cv.frame // Kích thước thực tế của nội dung sau khi bị zoom
-                    
-            // Tính toán khoảng trống dư thừa, chia đôi để lấy căn lề
+
+        public func centerContent(_ scrollView: UIScrollView) {
+            guard let cv = contentView else { return }
+            let boundsSize = scrollView.bounds.size
+            let frame = cv.frame
             let offsetX = max((boundsSize.width  - frame.width)  * 0.5, 0)
             let offsetY = max((boundsSize.height - frame.height) * 0.5, 0)
-                    
-            // Cập nhật lại center content
             cv.center = CGPoint(
                 x: frame.width  * 0.5 + offsetX,
                 y: frame.height * 0.5 + offsetY
             )
         }
-        
-        // init
-        func initOnce(_ scrollView: UIScrollView) {
+
+        // Chạy 1 lần sau khi layout hoàn tất
+        public func initOnce(_ scrollView: UIScrollView) {
             guard !didLoad else { return }
             didLoad = true
-            centerContent(scrollView) // Căn giữa lần đầu tiên
+            centerContent(scrollView)
         }
     }
-    
+
     public func makeCoordinator() -> Coordinator { Coordinator() }
-    
-    // MARK: - makeUIView (Hàm này chỉ chạy đúng 1 lần khi View lần đầu tiên xuất hiện)
+
+    // A. Khởi tạo UIScrollView
     public func makeUIView(context: Context) -> CanvasCustomScrollView {
         let scrollView = CanvasCustomScrollView()
-        scrollView.delegate = context.coordinator // gán coordinator làm delegate để nhận event scroll/zoom
-        
-        // setup config các thuộc tính cơ bản của UIScrollView
+        context.coordinator.onZoom = onZoom
+        scrollView.delegate = context.coordinator
+
         scrollView.showsVerticalScrollIndicator   = false
         scrollView.showsHorizontalScrollIndicator = false
-        scrollView.bouncesZoom                    = true // Cho phép hiệu ứng nảy (bounce) khi zoom quá giới hạn
+        scrollView.bouncesZoom                    = true
         scrollView.contentInsetAdjustmentBehavior = .never
         scrollView.backgroundColor = backgroundColor
-        scrollView.clipsToBounds   = true // Cắt bỏ những phần nội dung tràn ra ngoài ScrollView
+        scrollView.clipsToBounds   = true
         scrollView.minimumZoomScale = 0.1
         scrollView.maximumZoomScale = 5.0
-        
-        // Khởi tạo UIHostingController để biến SwiftUI View thành UIKit View
-        let hosting = UIHostingController(rootView: content)
+
+        let hosting = UIHostingController(rootView: viewSwiftUI)
         hosting.view.backgroundColor = canvasColor
-        hosting.view.frame.size      = size
-        hosting.view.clipsToBounds   = false
-        
+        hosting.view.frame.size      = CanvasSize
+        hosting.view.clipsToBounds   = false // cho phép tràn viền
+
         scrollView.addSubview(hosting.view)
         scrollView.hostingView = hosting.view
-        scrollView.contentSize = size
-        
+        scrollView.contentSize = CanvasSize
+        context.coordinator.contentView = hosting.view
         context.coordinator.hostingController = hosting
-        
+
         onSetup?(scrollView, hosting.view)
-        
         return scrollView
     }
-    
+
+    // B. Update khi SwiftUI state đổi
     public func updateUIView(_ scrollView: CanvasCustomScrollView, context: Context) {
-        scrollView.isScrollEnabled = isScrollEnabled
-        scrollView.pinchGestureRecognizer?.isEnabled = isScrollEnabled
-        
         context.coordinator.onZoom = onZoom
-        context.coordinator.onScroll = onScroll
+        context.coordinator.hostingController?.rootView = viewSwiftUI
         
-        // update view swiftui
-        context.coordinator.hostingController?.rootView = content
-        
-        // update size
-        if scrollView.contentSize != size {
-            scrollView.contentSize = size
-            context.coordinator.hostingController?.view.frame.size = size
-            context.coordinator.centerContent(scrollView)
-        }
-        
-        // update color background
-        scrollView.backgroundColor = backgroundColor
-        context.coordinator.hostingController?.view.backgroundColor = canvasColor
+        // update scroll view state
+        scrollView.isScrollEnabled = self.isScrollEnabled
+        scrollView.pinchGestureRecognizer?.isEnabled = self.isScrollEnabled
         
         DispatchQueue.main.async {
             context.coordinator.initOnce(scrollView)
@@ -155,21 +131,19 @@ public struct CanvasScrollView<ViewSwiftUI: View > : UIViewRepresentable {
 // MARK: - Tự viết lại cơ chế xác định view nào được chạm (hit test) thay vì dùng mặc định của UIKit.
 
 public class CanvasCustomScrollView: UIScrollView {
-    weak var hostingView: UIView? // Reference tới view chứa SwiftUI
-    
+    public weak var hostingView: UIView?
+
     public override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-
-        guard self.point(inside: point, with: event) else { return nil }
-        let result = super.hitTest(point, with: event)
-
-        if result == self || result == nil {
-            return result
-        }
+        guard self.point(inside: point, with: event) else { return nil } // check ngón tay có nằm trong scrollview k ? , trả về true false
         
+        // image còn trong bound
+        let result = super.hitTest(point, with: event)        
+        // trả về hostingView để nhường quyền gesture cho SwiftUI ( lúc image đi ra ngoài bound )
         if let hosting = hostingView {
+            
             return hosting
         }
-        
         return result
     }
 }
+

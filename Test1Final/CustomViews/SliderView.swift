@@ -13,11 +13,8 @@ struct SliderView: View {
     let thumbSize: CGFloat = 20
     
     var body: some View {
-        if let index = canvasViewModel.selectedPhotoIndex,
-           let project = canvasViewModel.projectDetail,
-           index >= 0, index < project.photos.count {
+        if let selectedPhoto = canvasViewModel.selectedPhoto {
                
-            let selectedPhoto = project.photos[index]
             let curOpacity = selectedPhoto.opacity
             
             GeometryReader { geo in

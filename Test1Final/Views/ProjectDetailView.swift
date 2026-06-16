@@ -11,6 +11,7 @@ struct ProjectDetailView: View {
     let projectID: Int
 
     @State private var canvasViewModel = CanvasViewModel()
+    @State private var uiState = CanvasUIState()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -50,13 +51,16 @@ struct ProjectDetailView: View {
                     displayW = displayH * aspectRatio
                 }
 
+                let center = uiState.currentCenter
                 canvasViewModel.addPhoto(
                     url: randomURL,
-                    baseSize: CGSize(width: displayW, height: displayH)
+                    baseSize: CGSize(width: displayW, height: displayH),
+                    center: center
                 )
             }
         }
         .environment(canvasViewModel)
+        .environment(uiState)
         .task {
             do {
                 try await canvasViewModel.fetchData(projectID)
