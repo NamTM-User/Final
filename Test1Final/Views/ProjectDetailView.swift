@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct ProjectDetailView: View {
-    let projectID: Int
+    let projectItem: ProjectItem
 
     @State private var canvasViewModel = CanvasViewModel()
     @State private var uiState = CanvasUIState()
@@ -37,7 +37,7 @@ struct ProjectDetailView: View {
 
                 let randomURL = UUID().uuidString
                 LocalFileManager.saveImage(image: img, imageName: randomURL)
-                canvasViewModel.localImages[randomURL] = img
+                canvasViewModel.project?.localImages[randomURL] = img
 
                 let screen = (UIApplication.shared.connectedScenes.first as? UIWindowScene)?.screen ?? UIScreen.main
                 let screenW = screen.bounds.width
@@ -62,15 +62,11 @@ struct ProjectDetailView: View {
         .environment(canvasViewModel)
         .environment(uiState)
         .task {
-            do {
-                try await canvasViewModel.fetchData(projectID)
-            } catch {
-                print("fetchData error: \(error)")
-            }
+            await canvasViewModel.loadProject(projectItem)
         }
     }
 }
 
 #Preview {
-    ProjectDetailView(projectID: 21)
+    ProjectDetailView(projectItem: ProjectItem(id: 21, name: "Test Project"))
 }

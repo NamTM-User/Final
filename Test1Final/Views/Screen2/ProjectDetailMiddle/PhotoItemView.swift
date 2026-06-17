@@ -10,7 +10,6 @@ import UIKit
 
 struct PhotoItemView: View {
     @Environment(CanvasViewModel.self) private var canvasViewModel
-    @State private var loadedImage: Image?
 
     let photo: Photo
     let isSelect: Bool
@@ -21,25 +20,13 @@ struct PhotoItemView: View {
         let transform = photo.transform
 
         Group {
-            if let img = canvasViewModel.localImages[photo.url] {
+            if let img = canvasViewModel.project?.localImages[photo.url] {
                 Image(uiImage: img)
-                    .resizable()
-                    .scaledToFill()
-            } else if let img = loadedImage {
-                img
                     .resizable()
                     .scaledToFill()
             } else {
                 Color.gray.opacity(0.15)
                     .overlay(ProgressView())
-                    .task {
-                        do {
-                            let img = try await canvasViewModel.loadImage(urlString: photo.url)
-                            loadedImage = img
-                        } catch {
-                            print(error)
-                        }
-                    }
             }
         }
         // ── Render chain theo thứ tự này ──

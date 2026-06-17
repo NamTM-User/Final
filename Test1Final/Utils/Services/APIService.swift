@@ -20,7 +20,7 @@ struct APIService {
     }
     
     // B. MARK: - POST
-    func postAPI(projectId: Int) async throws -> ProjectDetail {
+    func postAPI(projectId: Int) async throws -> Project {
         guard let url = URL(string: "https://tapuniverse.com/xprojectdetail") else { throw URLError(.badURL) }
         
         var request = URLRequest(url: url)
@@ -40,7 +40,7 @@ struct APIService {
         let (data, _) = try await URLSession.shared.data(for: request)
         
         // 5. Parse JSON Data
-        let res = try JSONDecoder().decode(ProjectDetail.self, from: data)
+        let res = try JSONDecoder().decode(Project.self, from: data)
         
         return res
         

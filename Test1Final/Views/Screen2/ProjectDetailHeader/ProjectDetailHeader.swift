@@ -50,7 +50,7 @@ struct ProjectDetailHeader: View {
             // 3. export
             ShareLink(
                 item: shareItem,
-                preview: SharePreview(canvasViewModel.projectDetail?.name ?? "Canvas"),
+                preview: SharePreview(canvasViewModel.project?.name ?? "Canvas"),
                 label: {
                     Text("Export")
                         .font(.system(size: 20, weight: .bold))

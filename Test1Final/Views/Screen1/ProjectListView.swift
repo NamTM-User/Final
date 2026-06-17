@@ -8,8 +8,8 @@
 import SwiftUI
 
 struct ProjectListView: View {
-    @Environment(ProjectModel.self) private var store
-    
+    @Environment(ProjectViewModel.self) private var store
+
     @State private var isShowAddAlert = false
     @State private var newNameProjet = ""
     
@@ -59,8 +59,8 @@ struct ProjectListView: View {
                 }
             
             .navigationTitle("Projects")
-            .navigationDestination(for: Project.self) { selectProject in
-                ProjectDetailView(projectID: selectProject.id)
+            .navigationDestination(for: ProjectItem.self) { selectProject in
+                ProjectDetailView(projectItem: selectProject)
             }
             .task {
                 do {
@@ -76,5 +76,5 @@ struct ProjectListView: View {
 
 
 #Preview {
-    ProjectListView().environment(ProjectModel())
+    ProjectListView().environment(ProjectViewModel())
 }

@@ -14,98 +14,61 @@ let CanvasSize = CGSize(width: 500, height: 500)
 @Observable
 @MainActor
 class CanvasViewModel {
-    var projectDetail: ProjectDetail?
+    // references Project Model
+    var project: Project?
     
-    // MARK: - State selected
+    // State selected
     var selectedPhoto: Photo?
-    var localImages: [String: UIImage] = [:]
-    
-    // MARK: - Canvas State
+    // Canvas State Scroll
     var isCanvasScrollEnabled: Bool = true
     
-    // MARK: - Load Image
-    func loadImage(urlString: String) async throws -> Image {
-        // 1. check image in local
-        if let img = self.localImages[urlString] {
-            return Image(uiImage: img)
-        }
-        
-        // 2. load image
-        let uiImage = try await ProjectDataManager.shared.downloadImage(urlString: urlString)
-        
-        // 3. Lưu vào RAM
-        self.localImages[urlString] = uiImage
-        return Image(uiImage: uiImage)
-    }
-    
-    // MARK: - Fetch
-    
-    func fetchData(_ id: Int) async throws {
-        // 1. lấy data
-        let project = try await ProjectDataManager.shared.fetchProject(id: id)
-        self.projectDetail = project
-        
-        // 2. load image in ssd
-        for photo in project.photos {
-            let safe = photo.url.hasPrefix("http") ? (photo.url.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "") : photo.url
-            if let img = LocalFileManager.loadImage(imageName: safe) {
-                self.localImages[photo.url] = img
-            }
+    // MARK: - loadProject: Khởi tạo và yêu cầu Project tự tải data
+    func loadProject(_ item: ProjectItem) async {
+        do {
+            let p = Project(projectId: item.id)
+            self.project = p  
+            
+            try await p.load() // Sau đó mới ngầm đi tải ảnh chậm
+        } catch {
+            print("Lỗi tải project Screen2:" , error)
         }
     }
     
-    // MARK: - Add Photo
+    // MARK: - SAVE UI
+    func saveChanges() {
+        project?.save()
+    }
+    
+    // MARK: - Add
     func addPhoto(url: String, baseSize: CGSize, center: CGPoint) {
-        
         let newPhoto = Photo(
             url: url,
-            transform: PhotoTransform(
-                center: center,
-                scale: 1.0,
-                rotation: 0.0,
-                baseSize: baseSize
-            )
+            transform: PhotoTransform(center: center, scale: 1.0, rotation: 0.0, baseSize: baseSize)
         )
-        projectDetail?.photos.append(newPhoto)
+        project?.photos.append(newPhoto)
+        saveChanges()
     }
     
-    // MARK: - Delete Photo
-    
+    // MARK: Delete
     func deletePhoto() {
-        guard let photo = selectedPhoto,
-              let project = projectDetail,
-              let index = project.photos.firstIndex(where: { $0.id == photo.id }) else {
-            return
-        }
+        guard let photo = selectedPhoto, let index = project?.photos.firstIndex(where: { $0.id == photo.id }) else { return }
         
-        // 1. delete
-        ProjectDataManager.shared.deleteImageFile(urlString: photo.url)
+        // A. Delete file in ssd
+        let safeName = LocalFileManager.getSafeImageName(from: photo.url)
+        LocalFileManager.deleteImage(imageName: safeName)
         
-        // 2. delete in model
-        var updatedProject = project
-        updatedProject.photos.remove(at: index)
-        self.projectDetail = updatedProject
+        // B. Delete in local
+        project?.photos.remove(at: index)
+        project?.localImages.removeValue(forKey: photo.url)
         
-        // 3. delete in local
-        self.localImages.removeValue(forKey: photo.url)
+        // C. Reset UI
         self.selectedPhoto = nil
-    }
-    
-    // MARK: - Save
-    
-    func saveChanges() {
-        if let project = projectDetail {
-            LocalFileManager.saveProject(project: project)
-        }
+        
+        saveChanges()
     }
     
     // MARK: - Draw
-    
     func renderCanvasImage() -> UIImage? {
-        return CanvasRenderer.renderImage(
-            photos: projectDetail?.photos,
-            localImages: localImages,
-            canvasSize: CanvasSize
-        )
+        return project?.render(canvasSize: CanvasSize)
     }
 }

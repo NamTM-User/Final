@@ -10,9 +10,9 @@ import SwiftUI
 import Combine
 
 @Observable
-class ProjectModel {
+class ProjectViewModel {
     // state project list
-    var projects: [Project] = []
+    var projects: [ProjectItem] = []
     
     // api
      private let apiService: APIService = APIService()
@@ -44,7 +44,7 @@ class ProjectModel {
         guard !name1.isEmpty else { return }
         
         let newId = (projects.map { $0.id }.max() ?? 0) + 1
-        let newProject = Project(id: newId, name: name1)
+        let newProject = ProjectItem(id: newId, name: name1)
         
         projects.append(newProject)
         
@@ -53,7 +53,7 @@ class ProjectModel {
     }
     
     // 3. delete project
-    func deleteProject(project: Project) {
+    func deleteProject(project: ProjectItem) {
         projects.removeAll { $0.id == project.id }
         LocalFileManager.saveProjectList(projects)
         

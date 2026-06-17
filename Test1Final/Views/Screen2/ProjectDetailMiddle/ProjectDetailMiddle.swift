@@ -34,7 +34,7 @@ struct ProjectDetailMiddle: View {
                     
                     // 4. focus camera
                     Task { @MainActor in
-                        if let photos = canvasModel.projectDetail?.photos, !photos.isEmpty {
+                        if let photos = canvasModel.project?.photos, !photos.isEmpty {
                             var minX: Double = Double.greatestFiniteMagnitude
                             var minY: Double = Double.greatestFiniteMagnitude
                             var maxX: Double = -Double.greatestFiniteMagnitude
@@ -111,7 +111,7 @@ struct PhotoContentLayer: View {
                 }
 
             // Render từng ảnh
-            if let detail = canvasModel.projectDetail {
+            if let detail = canvasModel.project {
                 ForEach(detail.photos) { photo in
                     let isSelected = canvasModel.selectedPhoto?.id == photo.id
                     PhotoItemView(

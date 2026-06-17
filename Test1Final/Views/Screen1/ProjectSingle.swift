@@ -9,7 +9,7 @@ import SwiftUI
 
 
 struct ProjectSingle: View {
-    let project: Project
+    let project: ProjectItem
     var onDelete: () -> Void
     
     @State private var offset: CGFloat = 0

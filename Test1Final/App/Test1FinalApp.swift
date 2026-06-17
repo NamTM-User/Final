@@ -12,7 +12,7 @@ struct Test1FinalApp: App {
     var body: some Scene {
         WindowGroup {
             ProjectListView()
-                .environment(ProjectModel())
+                .environment(ProjectViewModel())
                 .preferredColorScheme(.light)
         }
     }

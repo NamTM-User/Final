@@ -6,136 +6,122 @@
 //
 
 import Foundation
-import SwiftUI
+import SwiftUI 
 
 struct LocalFileManager {
-    // MARK: - Tạo paths
     
+    // MARK: - getFilePath: Tạo đường dẫn tuyệt đối tới file JSON của project trong Document
     static func getFilePath(projectId: Int) -> URL {
-        // lấy path từ document tại sandbox
         let paths = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
         return paths[0].appendingPathComponent("project_\(projectId).json")
     }
     
-    // MARK: - Save data
+    // =====================================
+    // MARK: - FILE PROJECT Screen2
+    // =====================================
     
-    static func saveProject(project: ProjectDetail) {
+    // MARK: - saveProject: Lưu đối tượng Project Màn 2 xuống máy dưới dạng JSON
+    static func saveProject(project: Project) {
         let url = getFilePath(projectId: project.id)
-        
         do {
-            // convert data project -> JSON
             let data = try JSONEncoder().encode(project)
             try data.write(to: url)
-        } catch {
-            print(error)
+        } catch { 
+            print("Lỗi khi lưu Project \(project.id): \(error)") 
         }
     }
     
-    // MARK: - Load project
-    
-    static func loadProject(projectId: Int) -> ProjectDetail? {
+    // MARK: - loadProject: Đọc file JSON từ máy và dịch ngược thành đối tượng Project Màn 2
+    static func loadProject(projectId: Int) -> Project? {
         let url = getFilePath(projectId: projectId)
-        
         do {
             let data = try Data(contentsOf: url)
-            let project = try JSONDecoder().decode(ProjectDetail.self, from: data)
-            
-            return project
-        } catch {
-            return nil
+            return try JSONDecoder().decode(Project.self, from: data)
+        } catch { 
+            return nil 
         }
     }
     
-    // MARK: - Save IMAGE
+    // =====================================
+    // MARK: - FILE PROJECT MÀN 1 (DANH SÁCH)
+    // =====================================
     
+    // MARK: - saveProjectList: Lưu toàn bộ mảng ProjectItem xuống 1 file project_list.json duy nhất
+    static func saveProjectList(_ projects: [ProjectItem]) {
+        let paths = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
+        let url = paths[0].appendingPathComponent("project_list.json")
+        do {
+            let data = try JSONEncoder().encode(projects)
+            try data.write(to: url)
+        } catch { 
+            print("Lỗi lưu ProjectList: \(error)") 
+        }
+    }
+    
+    // MARK: - loadProjectList: Đọc file project_list.json lên và trả về mảng ProjectItem cho Screen1
+    static func loadProjectList() -> [ProjectItem]? {
+        let paths = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
+        let url = paths[0].appendingPathComponent("project_list.json")
+        do {
+            let data = try Data(contentsOf: url)
+            return try JSONDecoder().decode([ProjectItem].self, from: data)
+        } catch { 
+            return nil 
+        }
+    }
+    
+    // =====================================
+    // MARK: - QUẢN LÝ HÌNH ẢNH (JPEG)
+    // =====================================
+    
+    // MARK: - getSafeImageName: Mã hoá đường link mạng thành chuỗi an toàn để làm tên file ảnh
+    static func getSafeImageName(from url: String) -> String {
+        if url.hasPrefix("http") {
+            return url.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? UUID().uuidString
+        }
+        return url
+    }
+    
+    // MARK: - saveImage: Nén ảnh UIImage thành file .jpeg và lưu vào ổ cứng để làm Cache
     static func saveImage(image: UIImage, imageName: String) {
-        // convert UIImage -> JPEG
-        
         guard let data = image.jpegData(compressionQuality: 0.9) else { return }
-        
         let paths = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
         let url = paths[0].appendingPathComponent(imageName)
-        
-        do {
-            try data.write(to: url)
-        } catch {
-            print(error)
+        do { 
+            try data.write(to: url) 
+        } catch { 
+            print("Lỗi lưu ảnh: \(error)") 
         }
     }
     
-    // MARK: - Delete IMAGE
+    // MARK: - loadImage: Tìm ảnh vật lý trong máy bằng tên, trả về UIImage để vẽ ra View
+    static func loadImage(imageName: String) -> UIImage? {
+        let paths = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
+        let url = paths[0].appendingPathComponent(imageName)
+        return UIImage(contentsOfFile: url.path)
+    }
     
+    // MARK: - deleteImage: Xoá 1 file ảnh vật lý ra khỏi ổ cứng
     static func deleteImage(imageName: String) {
         let paths = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
         let url = paths[0].appendingPathComponent(imageName)
         try? FileManager.default.removeItem(at: url)
     }
     
-    // MARK: - Safe Image Name
+    // =====================================
+    // MARK: - DELETE SCREEN1
+    // =====================================
     
-    static func getSafeImageName(from url: String) -> String {
-        if url.hasPrefix("http") {
-            return url.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? UUID().uuidString
-        } else {
-            return url
-        }
-    }
-    
-    // MARK: - Load IMAGE IN DOCUMENT
-    
-    static func loadImage(imageName: String) -> UIImage? {
-        let paths = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
-        let url = paths[0].appendingPathComponent(imageName) // -> output type URL , url.path convert type URL -> String
-        return UIImage(contentsOfFile: url.path)
-    }
-    
-    // MARK: - Save Project
-    
-    static func saveProjectList(_ projects: [Project]) {
-        let paths = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
-        let url = paths[0].appendingPathComponent("project_list.json")
-        
-        do {
-            let data = try JSONEncoder().encode(projects)
-            try data.write(to: url)
-
-        } catch {
-            print(error)
-        }
-    }
-    
-    // MARK: - LOAD Project
-    
-    static func loadProjectList() -> [Project]? {
-        let paths = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
-        let url = paths[0].appendingPathComponent("project_list.json")
-        
-        do {
-            let data = try Data(contentsOf: url)
-            let projects = try JSONDecoder().decode([Project].self, from: data)
-            return projects
-        } catch {
-            return nil
-        }
-    }
-    
-    // MARK: - Delete Project
-    
+    // MARK: - deleteProject: Xoá TẬN GỐC project
     static func deleteProject(projectId: Int) {
-        // Đọc project ra để biết danh sách ảnh cần xoá
         if let project = loadProject(projectId: projectId) {
-            // Xoá từng file ảnh vật lý
-            _ = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
-            
             for photo in project.photos {
                 let safeName = getSafeImageName(from: photo.url)
                 deleteImage(imageName: safeName)
             }
         }
         
-        // Xoá file JSON của project
         let url = getFilePath(projectId: projectId)
         try? FileManager.default.removeItem(at: url)
     }
-    
 }
